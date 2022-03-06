@@ -1,0 +1,43 @@
+version: '3'
+
+# docker-compose -f docker-compose.dev.yml build
+# docker-compose -f docker-compose.dev.yml up -d
+services:
+  app:
+    build: ./app
+    container_name: flask_vs_ts
+    command: gunicorn --bind 0.0.0.0:5000 app:app # WSGI server
+    environment:
+      - DATABASE_URL=postgresql://vs_user:z@db:5432/vs_db # путь до бд, см. db service
+    volumes:
+      - ./app:/app
+    expose:
+      - 5000
+    depends_on:
+      - db
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - ./pg_db:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=vs_user
+      - POSTGRES_PASSWORD=z
+      - POSTGRES_DB=vs_db
+  pgadmin:
+    image: dpage/pgadmin4
+    depends_on:
+      - db
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=root@vs.ru
+      - PGADMIN_DEFAULT_PASSWORD=vs_code_ts # если сменить здесь, то нужно удалить контентер
+      - PGADMIN_LISTEN_ADDRESS=0.0.0.0 # чтобы не было косяков с nginx лушче в одну сеть с app
+      - PGADMIN_LISTEN_PORT=5555
+  nginx:
+    build: ./nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./static:/home/web/default/static
+    depends_on:
+      - app
+      - pgadmin
